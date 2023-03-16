@@ -1,55 +1,48 @@
-# This is a basic workflow to help you get started with Actions
-
 name: Build and push the latest build to staging
 
-# Controls when the action will run. Triggers the workflow on push or pull request
-# events but only for the main branch
 on:
   push:
     branches: [ main ]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build_push-image:
-    # The type of runner that the job will run on
+  build_push_image:
     runs-on: ubuntu-20.04
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
-      
+
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v1
-      
+
       - name: Docker Login
-        # You may pin to the exact commit or the version.
-        # uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
-        uses: docker/login-action@v2.1.0
+        uses: docker/login-action@v1
         with:
-          # Server address of Docker registry. If not set then will default to Docker Hub
-          registry: ${{ secrets.ACR_NAME }} # optional
-          # Username used to log against the Docker registry
-          username: ${{ secrets.ACR_LOGIN }} # optional
-          # Password or personal access token used to log against the Docker registry
-          password: ${{ secrets.ACR_PASSWORD }} # optional
-        
+          registry: ${{ secrets.ACR_NAME }}
+          username: ${{ secrets.ACR_LOGIN }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
       - name: Build and push staging images
-      # You may pin to the exact commit or the version.
-      # uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         uses: docker/build-push-action@v2
         with:
           context: .
           tags: ${{secrets.ACR_NAME}}/contoso-website:latest
           push: true
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+  deploy:
+    runs-on: ubuntu-20.04
+    needs: build_push_image
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Helm
+        uses: Azure/setup-helm@v1
+        with:
+          version: v3.3.1
+
+      - name: Get AKS Credentials
+        uses: Azure/aks-set-context@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          resource-group: mslearn-gh-pipelines-10890
+          cluster-name: contoso-video
